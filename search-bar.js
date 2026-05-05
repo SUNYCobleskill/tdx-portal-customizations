@@ -13,48 +13,86 @@
    the current page URL, so the same script works on any TDX client portal
    without modification.
 
+   TDX renders desktop modules asynchronously via AJAX after DOMContentLoaded,
+   so a MutationObserver waits for our input/button to appear before wiring
+   handlers. Without this, querySelector returns null on initial load and
+   the script silently does nothing.
+
    Selectors use data-* attributes because TDX's allowlist permanently
    disallows id.
+
+   Diagnostic logs are prefixed [TDX Portal: search-bar] for filtering.
    ====================================================================== */
 
 (function () {
   'use strict';
 
-  // Pulls the numeric portal application ID out of the current URL path.
-  // E.g. https://.../TDClient/659/Portal/Home/ -> "659"
+  var LOG = '[TDX Portal: search-bar]';
+  console.log(LOG, 'script loaded');
+
   function getPortalId() {
     var match = window.location.pathname.match(/\/TDClient\/(\d+)\//);
     return match ? match[1] : null;
   }
 
-  function setup() {
-    var input = document.querySelector('[data-its-search]');
-    var btn = document.querySelector('[data-its-search-go]');
-    if (!input || !btn) return;
-
+  function attach(input, btn) {
     var portalId = getPortalId();
-    if (!portalId) return;
+    if (!portalId) {
+      console.warn(LOG, 'could not detect portal ID from URL — aborting setup');
+      return;
+    }
+    console.log(LOG, 'wiring handlers; portal ID detected:', portalId);
 
     function submit() {
       var q = input.value.trim();
-      if (!q) return;
-      window.location.href =
-        'https://cobleskill.teamdynamix.com/TDClient/' + portalId +
+      if (!q) {
+        console.log(LOG, 'submit called with empty query, ignoring');
+        return;
+      }
+      var url = 'https://cobleskill.teamdynamix.com/TDClient/' + portalId +
         '/Portal/Shared/Search/?c=all&s=' + encodeURIComponent(q);
+      console.log(LOG, 'submitting search; navigating to:', url);
+      window.location.href = url;
     }
 
-    btn.addEventListener('click', submit);
+    btn.addEventListener('click', function () {
+      console.log(LOG, 'search button clicked');
+      submit();
+    });
     input.addEventListener('keypress', function (e) {
       if (e.key === 'Enter') {
+        console.log(LOG, 'Enter pressed in search input');
         e.preventDefault();
         submit();
       }
     });
   }
 
-  if (document.readyState !== 'loading') {
-    setup();
-  } else {
-    document.addEventListener('DOMContentLoaded', setup);
+  function tryAttach() {
+    var input = document.querySelector('[data-its-search]');
+    var btn = document.querySelector('[data-its-search-go]');
+    if (input && btn) {
+      console.log(LOG, 'found search elements in DOM');
+      attach(input, btn);
+      return true;
+    }
+    return false;
   }
+
+  if (tryAttach()) {
+    return;
+  }
+
+  console.log(LOG, 'search elements not yet present; starting MutationObserver');
+  var observer = new MutationObserver(function () {
+    if (tryAttach()) {
+      console.log(LOG, 'observer matched; disconnecting');
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  setTimeout(function () {
+    console.warn(LOG, 'observer timeout (30s); search elements never appeared. Disconnecting.');
+    observer.disconnect();
+  }, 30000);
 })();
