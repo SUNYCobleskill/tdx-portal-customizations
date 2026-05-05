@@ -6,8 +6,8 @@
    sanitizer doesn't allow.
 
    Module HTML must include:
-     <input ... data-its-search ... />
-     <button ... data-its-search-go ...>Search</button>
+     <input ... class="its-search" ... />
+     <button ... class="its-search-go" ...>Search</button>
 
    The portal ID (e.g. 659 for test, 277 for production) is detected from
    the current page URL, so the same script works on any TDX client portal
@@ -15,11 +15,10 @@
 
    TDX renders desktop modules asynchronously via AJAX after DOMContentLoaded,
    so a MutationObserver waits for our input/button to appear before wiring
-   handlers. Without this, querySelector returns null on initial load and
-   the script silently does nothing.
+   handlers.
 
-   Selectors use data-* attributes because TDX's allowlist permanently
-   disallows id.
+   Selectors use class names because TDX's sanitizer strips most data-*
+   attributes by default and id is permanently disallowed.
 
    Diagnostic logs are prefixed [TDX Portal: search-bar] for filtering.
    ====================================================================== */
@@ -69,8 +68,8 @@
   }
 
   function tryAttach() {
-    var input = document.querySelector('[data-its-search]');
-    var btn = document.querySelector('[data-its-search-go]');
+    var input = document.querySelector('.its-search');
+    var btn = document.querySelector('.its-search-go');
     if (input && btn) {
       console.log(LOG, 'found search elements in DOM');
       attach(input, btn);
