@@ -1,17 +1,19 @@
 /* ======================================================================
    TDX Client Portal — Auth-State Hide
    ======================================================================
-   Hides elements marked [data-its-login-button] when the user is already
+   Hides elements with class .its-login-button when the user is already
    authenticated. TDX renders #btnUserProfileMenu (the user dropdown) only
    for logged-in users, so its presence is the auth signal.
 
    Module HTML for any element that should hide when logged in:
-     <a ... data-its-login-button ...>Log In</a>
+     <a ... class="its-login-button" ...>Log In</a>
 
    TDX renders desktop modules asynchronously via AJAX after DOMContentLoaded,
    so a MutationObserver waits for the target elements to appear before
-   applying. Without this, querySelectorAll returns nothing on initial load
-   and the hide never happens.
+   applying.
+
+   Selectors use class names because TDX's sanitizer strips most data-*
+   attributes by default.
 
    Diagnostic logs are prefixed [TDX Portal: auth-hide] for filtering.
    ====================================================================== */
@@ -33,7 +35,7 @@
   }
 
   function tryApply() {
-    var elements = document.querySelectorAll('[data-its-login-button]');
+    var elements = document.querySelectorAll('.its-login-button');
     if (elements.length > 0) {
       console.log(LOG, 'found', elements.length, 'login button(s) in DOM');
       applyHide(elements);
