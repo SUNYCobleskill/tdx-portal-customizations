@@ -9,8 +9,9 @@
      <a ... class="its-login-button" ...>Log In</a>
 
    TDX renders desktop modules asynchronously via AJAX after DOMContentLoaded,
-   so a MutationObserver waits for the target elements to appear before
-   applying.
+   so we poll every 250ms for up to 30s waiting for the target element to
+   appear. (MutationObserver was tried first but missed the relevant
+   mutation in this specific TDX module render path.)
 
    Selectors use class names because TDX's sanitizer strips most data-*
    attributes by default.
@@ -48,16 +49,15 @@
     return;
   }
 
-  console.log(LOG, 'login button not yet present; starting MutationObserver');
-  var observer = new MutationObserver(function () {
+  console.log(LOG, 'login button not yet present; polling every 250ms');
+  var startTime = Date.now();
+  var pollInterval = setInterval(function () {
     if (tryApply()) {
-      console.log(LOG, 'observer matched; disconnecting');
-      observer.disconnect();
+      console.log(LOG, 'poll matched; clearing');
+      clearInterval(pollInterval);
+    } else if (Date.now() - startTime > 30000) {
+      console.warn(LOG, 'poll timeout (30s); login button never appeared');
+      clearInterval(pollInterval);
     }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-  setTimeout(function () {
-    console.warn(LOG, 'observer timeout (30s); login button never appeared. Disconnecting.');
-    observer.disconnect();
-  }, 30000);
+  }, 250);
 })();
