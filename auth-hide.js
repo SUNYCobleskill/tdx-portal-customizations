@@ -2,7 +2,7 @@
    TDX Client Portal — Auth-State Toggle
    ======================================================================
    Toggles element visibility based on whether the user is authenticated,
-   and personalizes greetings with the user's full name.
+   and personalizes greetings with the user's first name.
 
    Auth signal: TDX renders #btnUserProfileMenu (the user dropdown) only
    for logged-in users. Its presence = authenticated.
@@ -10,16 +10,18 @@
    Module HTML conventions:
      <... class="its-show-when-logged-out">  - shown only when logged out
      <... class="its-show-when-logged-in">   - shown only when logged in
-     <span class="its-user-name">there</span> - replaced with FullName when
-                                                logged in (fallback "there"
-                                                if JS fails to populate)
+     <span class="its-user-name">there</span> - replaced with first name
+                                                when logged in (fallback
+                                                "there" if JS fails or no
+                                                FullName is available)
 
    Defaults to expect in the HTML: logged-out elements visible, logged-in
    elements hidden via inline style="display: none;". The script flips
    them when authenticated.
 
    Personalization source: window.TdxGtmContext.User.FullName (set by TDX
-   on every authenticated portal page).
+   on every authenticated portal page). The first whitespace-separated
+   chunk is used as the first name (e.g. "Wren Rowan" -> "Wren").
 
    TDX renders desktop modules asynchronously via AJAX after DOMContentLoaded,
    so we poll every 250ms for up to 30s waiting for target elements to
@@ -41,14 +43,18 @@
   var LOG = '[TDX Portal: auth-hide]';
   console.log(LOG, 'script loaded');
 
-  function getFullName() {
+  function getFirstName() {
+    var fullName = null;
     try {
-      return (window.TdxGtmContext &&
-              window.TdxGtmContext.User &&
-              window.TdxGtmContext.User.FullName) || null;
+      fullName = (window.TdxGtmContext &&
+                  window.TdxGtmContext.User &&
+                  window.TdxGtmContext.User.FullName) || null;
     } catch (e) {
       return null;
     }
+    if (!fullName) return null;
+    var parts = fullName.trim().split(/\s+/);
+    return parts[0] || null;
   }
 
   function applyAuthState() {
@@ -63,11 +69,11 @@
       for (i = 0; i < loggedInEls.length; i++) loggedInEls[i].style.display = '';
       for (i = 0; i < loggedOutEls.length; i++) loggedOutEls[i].style.display = 'none';
 
-      var fullName = getFullName();
-      if (fullName) {
+      var firstName = getFirstName();
+      if (firstName) {
         var nameSlots = document.querySelectorAll('.its-user-name');
-        for (i = 0; i < nameSlots.length; i++) nameSlots[i].textContent = fullName;
-        console.log(LOG, 'populated', nameSlots.length, 'name slot(s) with:', fullName);
+        for (i = 0; i < nameSlots.length; i++) nameSlots[i].textContent = firstName;
+        console.log(LOG, 'populated', nameSlots.length, 'name slot(s) with:', firstName);
       } else {
         console.warn(LOG, 'authenticated but FullName not available on window.TdxGtmContext');
       }
