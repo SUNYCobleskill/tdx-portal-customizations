@@ -377,6 +377,9 @@
   function buildRow(svc) {
     var row = el('div', 'display: table; width: 100%; padding: 10px 0; ' +
       'border-bottom: 1px solid #ededed; font-family: ' + FONT + ';');
+    // Caller strips the border on the final row so it does not sit directly on
+    // the card's own edge.
+    row.setAttribute('data-its-row', '1');
 
     var glyph = el('span', '', '');
     glyph.setAttribute('aria-hidden', 'true');
@@ -505,23 +508,39 @@
 
     // render() clears the mount, so the accessible name must come from here
     // rather than from placeholder markup in the module.
-    var region = el('div', '');
+    var region = el('div', 'margin-bottom: 24px;');
     region.setAttribute('role', 'region');
     region.setAttribute('aria-label', 'Vendor-reported service status');
 
     region.appendChild(el('h2', 'font-family: ' + FONT + '; font-size: 20px; ' +
-      'color: #333333; margin: 0 0 12px; font-weight: bold;', 'Vendor-Reported Status'));
+      'color: #333333; margin: 0 0 8px; font-weight: bold;', 'Vendor-Reported Status'));
+
+    // Paired with the "ITS Reported Outages and Maintenance" blurb in the module.
+    // Without both, a reader has no way to tell why there are two lists or why
+    // one might be empty while the other is not.
+    region.appendChild(el('p', 'font-family: ' + FONT + '; font-size: 15px; ' +
+      'color: #444444; margin: 0 0 12px; line-height: 1.6; max-width: 780px;',
+      'Live status published by the companies that run these services, checked ' +
+      'automatically each time this page loads. It reflects what each vendor ' +
+      'reports about its own systems and does not cover every campus service.'));
+
+    // Card matches the embedded report's treatment in Outages-Page.html so the
+    // two read as sections of one page. Green top border rather than the report's
+    // orange, so they are siblings and not mistaken for the same list.
+    var card = el('div', 'border: 1px solid #e0e0e0; border-top: 3px solid #6A7431; ' +
+      'border-radius: 4px; padding: 16px 16px 12px; background-color: #ffffff;');
+    region.appendChild(card);
 
     var bandNode = band();
     setBand(bandNode, 'unknown', 'Checking vendor status…');
-    region.appendChild(bandNode);
+    card.appendChild(bandNode);
 
     var listSlot = el('div', '');
-    region.appendChild(listSlot);
+    card.appendChild(listSlot);
 
     var stampSlot = el('p', 'font-family: ' + FONT + '; font-size: 13px; ' +
       'color: #595959; margin: 12px 0 0; line-height: 1.5;');
-    region.appendChild(stampSlot);
+    card.appendChild(stampSlot);
     mount.appendChild(region);
 
     // Dedupe ONCE and drive both the rows and the fetches from the same list.
@@ -543,8 +562,12 @@
     // Skeleton first, then patch each row as its own fetch settles. Nothing
     // waits on the slowest vendor and the layout never shifts.
     var rows = {};
-    active.forEach(function (svc) {
+    active.forEach(function (svc, i) {
       rows[svc.id] = buildRow(svc);
+      if (i === active.length - 1) {
+        rows[svc.id].node.setAttribute('style',
+          rows[svc.id].node.getAttribute('style').replace('border-bottom: 1px solid #ededed; ', ''));
+      }
       listSlot.appendChild(rows[svc.id].node);
     });
 
@@ -578,7 +601,7 @@
       if (snapshot.notice) {
         region.insertBefore(el('p', 'font-family: ' + FONT + '; font-size: 15px; ' +
           'color: #333333; margin: 0 0 12px; line-height: 1.6; font-weight: bold;',
-          snapshot.notice), bandNode);
+          snapshot.notice), card);
       }
 
       var stamp = formatStamp(snapshot.generated_at);
