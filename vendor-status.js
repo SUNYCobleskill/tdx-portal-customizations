@@ -129,6 +129,25 @@
   ];
 
   /* ---------------------------------------------------------------
+     LINK-OUTS — services we deliberately do NOT claim to monitor.
+
+     Microsoft 365 is the reason this project exists, and it is also the one
+     thing stage 2 structurally cannot cover: there is no public JSON, only
+     Graph serviceAnnouncement behind an Entra app registration, which is
+     stage 3. Showing it as a status row would be a lie; omitting it entirely
+     leaves the most-asked-about service unmentioned. So it gets a row that is
+     visibly not a monitored one, with somewhere to go.
+
+     Brightspace belongs here too if wanted; its endpoint was never found. One
+     more entry, no code change.
+     --------------------------------------------------------------- */
+  var LINK_OUTS = [
+    { name: 'Microsoft 365',
+      linkText: 'Check Microsoft',
+      link: 'https://status.cloud.microsoft/' }
+  ];
+
+  /* ---------------------------------------------------------------
      STATUS MODEL — mirrors Snapshot-Schema.md.
      `unknown` deliberately outranks `outage`: a source we cannot reach
      is not healthy, and "we cannot tell you" must never hide behind
@@ -415,6 +434,31 @@
     ok:      'background-color: #F2F5EC; border-left: 4px solid #6A7431;'
   };
 
+  function buildLinkRow(item) {
+    var row = el('div', 'display: table; width: 100%; padding: 10px 0; ' +
+      'border-bottom: 1px solid #ededed; font-family: ' + FONT + ';');
+
+    var glyph = el('span', 'display: table-cell; width: 24px; vertical-align: top; ' +
+      'color: #595959; font-size: 15px; line-height: 1.5;', '↗');
+    glyph.setAttribute('aria-hidden', 'true');
+    row.appendChild(glyph);
+
+    var nameCell = el('span', 'display: table-cell; vertical-align: top; font-size: 15px; ' +
+      'color: #333333; line-height: 1.5; padding-right: 12px;', item.name);
+    row.appendChild(nameCell);
+
+    var linkCell = el('span', 'display: table-cell; vertical-align: top; text-align: right; ' +
+      'white-space: nowrap; font-size: 15px; line-height: 1.5;');
+    var a = el('a', 'color: #C24A22; text-decoration: underline;', item.linkText);
+    a.setAttribute('href', item.link);
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+    a.setAttribute('title', item.name + ' service status (opens in a new tab)');
+    linkCell.appendChild(a);
+    row.appendChild(linkCell);
+    return row;
+  }
+
   function band() {
     var b = el('div', '');
     b.setAttribute('role', 'status');
@@ -560,6 +604,13 @@
     var listSlot = el('div', '');
     card.appendChild(listSlot);
 
+    if (LINK_OUTS.length) {
+      card.appendChild(el('p', 'font-family: ' + FONT + '; font-size: 13px; ' +
+        'color: #595959; margin: 16px 0 0; line-height: 1.5; font-weight: bold;',
+        'Not checked automatically'));
+      LINK_OUTS.forEach(function (item) { card.appendChild(buildLinkRow(item)); });
+    }
+
     var stampSlot = el('p', 'font-family: ' + FONT + '; font-size: 13px; ' +
       'color: #595959; margin: 12px 0 0; line-height: 1.5;');
     card.appendChild(stampSlot);
@@ -586,7 +637,7 @@
     var rows = {};
     active.forEach(function (svc, i) {
       rows[svc.id] = buildRow(svc);
-      if (i === active.length - 1) {
+      if (i === active.length - 1 && !LINK_OUTS.length) {
         rows[svc.id].node.setAttribute('style',
           rows[svc.id].node.getAttribute('style').replace('border-bottom: 1px solid #ededed; ', ''));
       }
