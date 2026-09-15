@@ -421,15 +421,29 @@
     return b;
   }
 
+  // Visually hidden but still read aloud. Inline because TDX strips <style>,
+  // so there is no .sr-only class available.
+  var SR_ONLY = 'position: absolute; width: 1px; height: 1px; padding: 0; ' +
+    'margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;';
+
   /* Mutates the existing band rather than replacing the node. A role="status"
      live region that is inserted together with its content is frequently not
      announced; the region has to already exist in the DOM when its text
      changes. Replacing the node would mean a screen reader user hears
-     "Checking vendor status" and never hears the result. */
-  function setBand(node, kind, text) {
-    node.setAttribute('style', 'font-family: ' + FONT + '; font-size: 15px; ' +
-      'line-height: 1.6; margin: 0 0 16px; padding: 12px 14px; border-radius: 4px; ' +
-      'color: #333333; ' + BAND_PALETTE[kind]);
+     "Checking vendor status" and never hears the result.
+
+     `visible` controls only whether it is SEEN. The text is always set, so the
+     live region always announces. With eight rows on screen at once, a visible
+     banner restating "VPN is degraded" is noise: the row two inches below
+     already says so, in the same words. The exception is the unreachable case,
+     where the rows say "Status unavailable" and only this line explains that we
+     could not check rather than that everything is down. */
+  function setBand(node, kind, text, visible) {
+    node.setAttribute('style', visible
+      ? ('font-family: ' + FONT + '; font-size: 15px; line-height: 1.6; ' +
+         'margin: 0 0 16px; padding: 12px 14px; border-radius: 4px; ' +
+         'color: #333333; ' + BAND_PALETTE[kind])
+      : SR_ONLY);
     node.textContent = text;
   }
 
@@ -439,7 +453,7 @@
      the requests. */
   function summarize(services) {
     if (!services.length) {
-      return { kind: 'unknown', text: 'No services are configured for monitoring.' };
+      return { kind: 'unknown', visible: true, text: 'No services are configured for monitoring.' };
     }
 
     var problems = [], unreached = [], maint = [];
@@ -460,10 +474,15 @@
         ? ' ' + unreached.length + ' other service' + (unreached.length === 1 ? '' : 's') +
           ' could not be checked.'
         : '';
-      return { kind: 'problem', text: 'Vendors currently reporting issues: ' + names + '.' + extra };
+      // Not shown: each affected row already carries its own status label.
+      return { kind: 'problem', visible: false,
+               text: 'Vendors currently reporting issues: ' + names + '.' + extra };
     }
     if (unreached.length === services.length) {
-      return { kind: 'unknown', text: 'Vendor status could not be retrieved right now. This ' +
+      // Shown: the rows say "Status unavailable" and nothing else explains that
+      // this is our failure to check rather than a campus-wide outage.
+      return { kind: 'unknown', visible: true,
+               text: 'Vendor status could not be retrieved right now. This ' +
         'does not mean these services are down. See the outages listed below.' };
     }
 
@@ -473,13 +492,16 @@
       : '';
 
     if (unreached.length) {
-      return { kind: 'unknown', text: 'All reachable vendors are reporting normal service. ' +
+      return { kind: 'unknown', visible: true,
+               text: 'All reachable vendors are reporting normal service. ' +
         unreached.length + ' could not be checked.' + maintNote };
     }
     if (maint.length) {
-      return { kind: 'ok', text: 'All monitored vendors are reporting normal service.' + maintNote };
+      return { kind: 'ok', visible: false,
+               text: 'All monitored vendors are reporting normal service.' + maintNote };
     }
-    return { kind: 'ok', text: 'All monitored vendors are reporting normal service.' };
+    return { kind: 'ok', visible: false,
+             text: 'All monitored vendors are reporting normal service.' };
   }
 
   function rankOf(status) {
@@ -532,7 +554,7 @@
     region.appendChild(card);
 
     var bandNode = band();
-    setBand(bandNode, 'unknown', 'Checking vendor status…');
+    setBand(bandNode, 'unknown', 'Checking vendor status…', false);
     card.appendChild(bandNode);
 
     var listSlot = el('div', '');
@@ -596,7 +618,7 @@
       }
 
       var summary = summarize(snapshot.services);
-      setBand(bandNode, summary.kind, summary.text);
+      setBand(bandNode, summary.kind, summary.text, summary.visible);
 
       if (snapshot.notice) {
         region.insertBefore(el('p', 'font-family: ' + FONT + '; font-size: 15px; ' +
@@ -618,7 +640,7 @@
       // a hung page rather than a failed one.
       console.error(LOG, 'render failed:', err);
       setBand(bandNode, 'unknown', 'Vendor status could not be retrieved right now. ' +
-        'This does not mean these services are down. See the outages listed below.');
+        'This does not mean these services are down. See the outages listed below.', true);
       stampSlot.textContent = '';
     });
   }
