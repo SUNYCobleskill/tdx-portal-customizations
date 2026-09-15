@@ -343,7 +343,7 @@
       return { text: 'Last updated ' + when + '. This may not reflect current conditions.',
                stale: true };
     }
-    return { text: 'Checked ' + when + '.', stale: false };
+    return { text: 'Last checked ' + when + '.', stale: false };
   }
 
   /* status === null means "still checking". */
@@ -605,8 +605,7 @@
       }
 
       var stamp = formatStamp(snapshot.generated_at);
-      stampSlot.textContent = stamp.text + ' This reflects what each vendor reports about ' +
-        'its own service and does not cover every campus system.';
+      stampSlot.textContent = stamp.text;
       if (stamp.stale) {
         stampSlot.setAttribute('style', stampSlot.getAttribute('style') +
           ' color: #A34400; font-weight: bold;');
